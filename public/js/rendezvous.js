@@ -2,21 +2,11 @@ const appURL = () => {
 	const protocol = 'http' + ((location.hostname == 'localhost') ? '' : 's') + '://';
 	return protocol + location.hostname + ((location.hostname == 'localhost') ? ':3000' : '');
 }
-//const getRoomName = () => {
-//	let roomName = location.pathname.substring(1);
-//	if (roomName == '') {
-//		const randomName = () => Math.random().toString(36).substr(2, 6);
-//		roomName = randomName();
-//		const newurl = appURL() + '/' + roomName;
-//		window.history.pushState({ url: newurl }, roomName, newurl);
-//	}
-//	return roomName;
-//}
+
 var SIGNALING_SERVER = appURL();
 var USE_AUDIO = true;
 var USE_VIDEO = true;
 var IS_SCREEN_STREAMING = false;
-//var ROOM_ID = getRoomName();
 var ICE_SERVERS = [
 	{ 'urls': 'stun:stun.l.google.com:19302' },
 	{ 'urls': 'stun:stun.stunprotocol.org:3478' },
@@ -31,14 +21,14 @@ var peer_media_elements = {}; /* keep track of our <video>/<audio> tags, indexed
 function init(chan, nickname) {
 	// console.log("Connecting to signaling server");
 	signaling_socket = io(SIGNALING_SERVER);
-	signaling_socket = io();
+	//signaling_socket = io();
 	signaling_socket.on('connect', function() {
 		// console.log("Connected to signaling server");
-		if (local_media_stream) join_chat_channel(chan, {'nickname' : nickname});
+		if (local_media_stream) join_chat_channel(chan, {"nickname": nickname});
 		else setup_local_media(function() {
 			/* once the user has given us access to their
 			 * microphone/camcorder, join the channel and start peering up */
-			join_chat_channel(chan, {});
+			join_chat_channel(chan, {"nickname": nickname});
 		});
 	});
 	signaling_socket.on('disconnect', function() {
@@ -334,5 +324,7 @@ $('#join').submit(function (e){
     var chan = $('#channel').val()
     var nickname = $('#nickname').val()
 
+	$('#join-content').hide();
     init(chan, nickname);
+	$('#content').show();
 })

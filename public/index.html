@@ -14,14 +14,14 @@
             href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"
             integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" 
             crossorigin="anonymous">
-        <link rel="stylesheet" href="/css/style.css">
+        <link rel="stylesheet" href="/css/rendezvous.css">
 
-        <title>Ma diet en ligne</title>
+        <title>Rendez-vous</title>
     </head>
     <body>
-        <h1>Ma diet en ligne</h1>
+        <h1>Rendez-vous</h1>
 
-        <div class="container">
+        <div id="join-content" class="container">
             <form id="join">
                 <div class="form-group">
                     <label for="nickname">Nickname</label>
@@ -35,7 +35,7 @@
             </form>            
         </div>
 
-        <div id="content" class="container">
+        <div id="content" style="display: none;">
             <!-- 
             the <video> and <audio> tags are all added and removed dynamically
             in 'onAddStream', 'setup_local_media', and 'removePeer'/'disconnect'
@@ -56,10 +56,7 @@
             src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" 
             integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" 
             crossorigin="anonymous"></script>        
-        <script 
-            src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js" 
-            integrity="sha256-bQmrZe4yPnQrLTY+1gYylfNMBuGfnT/HKsCGX+9Xuqo=" 
-            crossorigin="anonymous"></script>        
-        <script src="/js/client.js"></script>
+        <script src="/socket.io/socket.io.js"></script>        
+        <script src="/js/rendezvous.js"></script>
     </body>
 </html>
