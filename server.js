@@ -14,13 +14,12 @@ app.get('/status', (_req, res) => {
 });
 
 // manage cors
-//var whitelist = ['http://localhost:3000', 'http://example2.com'];
-//io.origins((origin, callback) => {
-//    if (whitelist.indexOf(origin) !== -1 || !origin) {
-//        callback(null, true);
-//    }
-//    callback(new Error('Not allowed by CORS'));
-//});
+io.origins((origin, callback) => {
+    if (config.cors_whitelist.indexOf(origin) !== -1 || !origin) {
+        callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+});
 
 io.on('connect', socketEvents.connection);
 
