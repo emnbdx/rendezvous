@@ -1,3 +1,4 @@
+const config = require('./config');
 const db = require('./db');
 
 module.exports.connection = (socket) => {
@@ -14,10 +15,10 @@ module.exports.connection = (socket) => {
         delete db.sockets[socket.id];
     }
 
-    const join = (config) => {
-        console.log(`[${socket.id}] join `, config);
-        var channel = config.channel;
-        var userdata = config.userdata;
+    const join = (conf) => {
+        console.log(`[${socket.id}] join `, conf);
+        var channel = conf.channel;
+        var userdata = conf.userdata;
 
         if (channel in socket.channels) {
             console.log(`[${socket.id}] ERROR: already joined `, channel);
@@ -26,6 +27,11 @@ module.exports.connection = (socket) => {
 
         if (!(channel in db.channels)) {
             db.channels[channel] = {};
+        }
+
+        if(Object.keys(db.channels[channel]).length >= config.channel_capacity) {
+            console.log(`[${socket.id}] ERROR: channel full `, channel);
+            return;
         }
 
         for (id in db.channels[channel]) {
@@ -54,20 +60,20 @@ module.exports.connection = (socket) => {
         }
     }
 
-    const relayICECandidate = (config) => {
-        var peer_id = config.peer_id;
-        var ice_candidate = config.ice_candidate;
-        console.log(`[${socket.id}] relaying ICE candidate to [${peer_id}] `, ice_candidate);
+    const relayICECandidate = (conf) => {
+        var peer_id = conf.peer_id;
+        var ice_candidate = conf.ice_candidate;
+        //console.log(`[${socket.id}] relaying ICE candidate to [${peer_id}] `, ice_candidate);
 
         if (peer_id in db.sockets) {
             db.sockets[peer_id].emit('iceCandidate', {'peer_id': socket.id, 'ice_candidate': ice_candidate});
         }
     }
 
-    const relaySessionDescription = (config) => {
-        var peer_id = config.peer_id;
-        var session_description = config.session_description;
-        console.log(`[${socket.id}] relaying session description to [${peer_id}] `, session_description);
+    const relaySessionDescription = (conf) => {
+        var peer_id = conf.peer_id;
+        var session_description = conf.session_description;
+        //console.log(`[${socket.id}] relaying session description to [${peer_id}] `, session_description);
 
         if (peer_id in db.sockets) {
             db.sockets[peer_id].emit('sessionDescription', {'peer_id': socket.id, 'session_description': session_description});
