@@ -325,6 +325,7 @@ $('#join').submit(function (e){
     var nickname = $('#nickname').val()
 
 	$('#join-content').hide();
+	$('header').hide();
     init(chan, nickname);
 	$('#content').show();
 })
