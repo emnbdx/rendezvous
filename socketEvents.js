@@ -31,6 +31,8 @@ module.exports.connection = (socket) => {
 
         if(Object.keys(db.channels[channel]).length >= config.channel_capacity) {
             console.log(`[${socket.id}] ERROR: channel full `, channel);
+            socket.emit('channelFull');
+            socket.disconnect();
             return;
         }
 
