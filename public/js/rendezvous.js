@@ -18,17 +18,17 @@ var signaling_socket = null; /* our socket.io connection to our webserver */
 var local_media_stream = null; /* our own microphone / webcam */
 var peers = {}; /* keep track of our peer connections, indexed by peer_id (aka socket.io id) */
 var peer_media_elements = {}; /* keep track of our <video>/<audio> tags, indexed by peer_id */
-function init(chan, nickname) {
+function init(chan) {
 	// console.log("Connecting to signaling server");
 	signaling_socket = io(SIGNALING_SERVER);
 	//signaling_socket = io();
 	signaling_socket.on('connect', function() {
 		// console.log("Connected to signaling server");
-		if (local_media_stream) join_chat_channel(chan, {"nickname": nickname});
+		if (local_media_stream) join_chat_channel(chan);
 		else setup_local_media(function() {
 			/* once the user has given us access to their
 			 * microphone/camcorder, join the channel and start peering up */
-			join_chat_channel(chan, {"nickname": nickname});
+			join_chat_channel(chan);
 		});
 	});
 	signaling_socket.on('disconnect', function() {
@@ -45,8 +45,11 @@ function init(chan, nickname) {
 		peers = {};
 		peer_media_elements = {};
 	});
-	function join_chat_channel(channel, userdata) {
-		signaling_socket.emit('join', { "channel": channel, "userdata": userdata });
+	signaling_socket.on('channelFull', function() {
+		window.location = "/";
+	});
+	function join_chat_channel(channel) {
+		signaling_socket.emit('join', { "channel": channel });
 	}
 	function part_chat_channel(channel) {
 		signaling_socket.emit('part', channel);
@@ -229,7 +232,7 @@ function setup_local_media(callback, errorback) {
 		videoWrap.className = 'video';
 		videoWrap.setAttribute('id', 'selfVideoWrap');
 		const btnWrap = document.createElement('div');
-		btnWrap.setAttribute('id', 'btnWrap');
+		btnWrap.setAttribute('class', 'btn-container');
 		const muteBtn = document.createElement('button');
 		muteBtn.setAttribute('id', 'mutebtn');
 		muteBtn.className = 'fa fa-microphone';
@@ -240,10 +243,10 @@ function setup_local_media(callback, errorback) {
 		btnWrap.appendChild(muteBtn);
 		const videoMuteBtn = document.createElement('button');
 		videoMuteBtn.setAttribute('id', 'videomutebtn');
-		videoMuteBtn.className = 'fa fa-video-camera';
+		videoMuteBtn.className = 'fa fa-video';
 		videoMuteBtn.addEventListener('click', (e) => {
 			local_media_stream.getVideoTracks()[0].enabled = !(local_media_stream.getVideoTracks()[0].enabled);
-			e.target.className = 'fa fa-video-camera' + (local_media_stream.getVideoTracks()[0].enabled ? '' : '-slash');
+			e.target.className = 'fa fa-video' + (local_media_stream.getVideoTracks()[0].enabled ? '' : '-slash');
 		});
 		btnWrap.appendChild(videoMuteBtn);
 		const screenShareBtn = document.createElement('button');
@@ -321,11 +324,10 @@ const checkParticipantsCount = () => {
 
 $('#join').submit(function (e){
     e.preventDefault();
-    var chan = $('#channel').val()
-    var nickname = $('#nickname').val()
+    var chan = $('#room').val()
 
-	$('#join-content').hide();
+    init(chan);
+	$('.offline').hide();
 	$('header').hide();
-    init(chan, nickname);
-	$('#content').show();
+	$('#video-container').show();
 })

@@ -8,6 +8,7 @@ const db = require('./db');
 const socketEvents = require('./socketEvents');
 
 app.use('/', express.static(__dirname + '/public'));
+app.use('/stylesheets/fontawesome', express.static(__dirname + '/node_modules/@fortawesome/fontawesome-free/'));
 
 app.get('/status', (_req, res) => {
     res.json(db.dump());

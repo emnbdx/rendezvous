@@ -1,47 +1,58 @@
 <!doctype html>
 <html lang="en">
     <head>
-        <!-- Required meta tags -->
-        <meta charset="utf-8">
+         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-        <!-- Bootstrap CSS -->
         <link rel="stylesheet" 
             href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" 
             integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" 
             crossorigin="anonymous">
-        <link rel="stylesheet" 
-            href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"
-            integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" 
-            crossorigin="anonymous">
-        <link rel="stylesheet" href="/css/rendezvous.css">
+            <link rel="stylesheet" href="/stylesheets/fontawesome/css/all.min.css">
+            <link rel="stylesheet" href="/css/rendezvous.min.css">
 
-        <title>Rendez-vous</title>
+        <title>rdv.la</title>
     </head>
     <body>
-        <header>
-            <h1>Rendez-vous</h1>
-        </header>
-
-        <div id="join-content" class="container">
-            <form id="join">
-                <div class="form-group">
-                    <label for="channel">Channel</label>
-                    <input id="channel" type="text" class="form-control"/>
+        <div id="content">
+            <div class="offline">
+                <div class="background">
                 </div>
-                <button class="btn btn-primary" type="submit">Join !</button>
-            </form>            
-        </div>
+    
+                <div class="btn-container">
+                    <button class="fa fa-microphone"></button>
+                    <button class="fa fa-video"></button>
+                    <button class="fa fa-desktop"></button>
+                </div>
+    
+                <div class="overlay">
+                </div>
+    
+                <div class="form-container text-center">
+                    <form id="join" method="post">
+                        <div class="col-12 col-xl-5 m-auto">
+                            <p>
+                                Enter your room id
+                            </p>
+                        </div>
+                        <div class="col-12 col-md-5 col-xl-3 m-auto form-group">
+                            <input id="room" name="room" type="text" class="form-control" />
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            Join
+                        </button>
+                    </form>
+                </div>
+            </div>
 
-        <div id="content" style="display: none;">
-            <!-- 
-            the <video> and <audio> tags are all added and removed dynamically
-            in 'onAddStream', 'setup_local_media', and 'removePeer'/'disconnect'
-            -->
-        </div>              
+            <div id="video-container" style="display: none;">
+                <!-- 
+                the <video> and <audio> tags are all added and removed dynamically
+                in 'onAddStream', 'setup_local_media', and 'removePeer'/'disconnect'
+                -->
+            </div>  
+        </div>       
 
-        <!-- Optional JavaScript -->
-        <!-- jQuery first, then Popper.js, then Bootstrap JS -->
         <script
             src="https://code.jquery.com/jquery-3.4.1.min.js"
             integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
@@ -55,6 +66,6 @@
             integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" 
             crossorigin="anonymous"></script>        
         <script src="/socket.io/socket.io.js"></script>        
-        <script src="/js/rendezvous.js"></script>
+        <script src="/js/rendezvous.min.js"></script>
     </body>
 </html>
