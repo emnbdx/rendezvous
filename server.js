@@ -14,6 +14,10 @@ app.get('/status', (_req, res) => {
     res.json(db.dump());
 });
 
+app.get('/:room', (_req, res) => {
+    res.sendFile(__dirname + '/public/index.html');
+});
+
 // manage cors
 io.origins((origin, callback) => {
     if (config.cors_whitelist.indexOf(origin) !== -1 || !origin) {

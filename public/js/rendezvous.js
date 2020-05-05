@@ -322,12 +322,22 @@ const checkParticipantsCount = () => {
 	}
 }
 
-$('#join').submit(function (e){
-    e.preventDefault();
-    var chan = $('#room').val()
-
-    init(chan);
+function startVideo(chan) {
+	init(chan);
 	$('.offline').hide();
 	$('header').hide();
 	$('#video-container').show();
+}
+
+$('#join').submit(function (e){
+    e.preventDefault();
+	window.location = '/' + $('#room').val();
+})
+
+$('document').ready(function(){
+	var chan = window.location.pathname.slice(1);
+	if(chan != '') {
+		console.log('try to access to ' + chan);
+		startVideo(chan.slice(1));
+	}
 })
