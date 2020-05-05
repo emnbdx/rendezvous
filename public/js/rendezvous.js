@@ -338,6 +338,6 @@ $('document').ready(function(){
 	var chan = window.location.pathname.slice(1);
 	if(chan != '') {
 		console.log('try to access to ' + chan);
-		startVideo(chan.slice(1));
+		startVideo(chan);
 	}
 })
