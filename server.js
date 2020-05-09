@@ -20,9 +20,10 @@ app.get('/:room', (_req, res) => {
 
 // manage cors
 io.origins((origin, callback) => {
-    if (config.cors_whitelist.indexOf(origin) !== -1 || !origin) {
+    if(config.cors_whitelist.filter(item => origin.startsWith(item)).length > 0) {
         callback(null, true);
     }
+    
     callback(new Error('Not allowed by CORS'));
 });
 
