@@ -1,306 +1,249 @@
 const appURL = () => {
-	const protocol = 'http' + ((location.hostname == 'localhost') ? '' : 's') + '://';
-	return protocol + location.hostname + ((location.hostname == 'localhost') ? ':3000' : '');
-}
-
+	const protocol = 'http' + (location.hostname == 'localhost' ? '' : 's') + '://';
+	return protocol + location.hostname + (location.hostname == 'localhost' ? ':3000' : '');
+};
 var SIGNALING_SERVER = appURL();
 var USE_AUDIO = true;
 var USE_VIDEO = true;
+var CAMERA = 'user';
 var IS_SCREEN_STREAMING = false;
+var peerConnection = null;
+
 var ICE_SERVERS = [
-	{ 'urls': 'stun:stun.l.google.com:19302' },
-	{ 'urls': 'stun:stun.stunprotocol.org:3478' },
-	{ 'urls': 'stun:stun.sipnet.net:3478' },
-	{ 'urls': 'stun:stun.ideasip.com:3478' },
-	{ 'urls': 'stun:stun.iptel.org:3478' }
+	{ urls: 'stun:stun.l.google.com:19302' },
+	{ urls: 'stun:stun1.l.google.com:19302' },
+	{ urls: 'stun:stun2.l.google.com:19302' },
+	{ urls: 'stun:stun3.l.google.com:19302' },
+	{ urls: 'stun:stun4.l.google.com:19302' },
+	{ urls: 'stun:stun.stunprotocol.org:3478' },
+	{ urls: 'stun:stun.sipnet.net:3478' },
+	{ urls: 'stun:stun.ideasip.com:3478' },
+	{ urls: 'stun:stun.iptel.org:3478' }
 ];
-var signaling_socket = null; /* our socket.io connection to our webserver */
-var local_media_stream = null; /* our own microphone / webcam */
+
+var signalingSocket = null; /* socket.io connection to our webserver */
+var localMediaStream = null; /* my own microphone / webcam */
 var peers = {}; /* keep track of our peer connections, indexed by peer_id (aka socket.io id) */
-var peer_media_elements = {}; /* keep track of our <video>/<audio> tags, indexed by peer_id */
-function init(chan) {
-	// console.log("Connecting to signaling server");
-	signaling_socket = io(SIGNALING_SERVER);
-	//signaling_socket = io();
-	signaling_socket.on('connect', function() {
-		// console.log("Connected to signaling server");
-		if (local_media_stream) join_chat_channel(chan);
-		else setup_local_media(function() {
-			/* once the user has given us access to their
-			 * microphone/camcorder, join the channel and start peering up */
-			join_chat_channel(chan);
-		});
+var peerMediaElements = {}; /* keep track of our <video> tags, indexed by peer_id */
+
+function init(room) {
+	console.log('Connecting to signaling server');
+	signalingSocket = io(SIGNALING_SERVER);
+
+	signalingSocket.on('connect', function() {
+		console.log('Connected to signaling server');
+		if (localMediaStream) joinChannel(room, {});
+		else
+			setup_local_media(function() {
+				// Join the channel once user gives access to microphone & webcam
+				joinChannel(room, {});
+			});
 	});
-	signaling_socket.on('disconnect', function() {
-		// console.log("Disconnected from signaling server");
-		/* Tear down all of our peer connections and remove all the
-		 * media divs when we disconnect */
-		for (peer_id in peer_media_elements) {
-			document.getElementById('content').removeChild(peer_media_elements[peer_id].parentNode);
+	signalingSocket.on('disconnect', function() {
+		for (peer_id in peerMediaElements) {
+			document.getElementById('video-container').removeChild(peerMediaElements[peer_id].parentNode);
 			resizeVideos();
 		}
 		for (peer_id in peers) {
 			peers[peer_id].close();
 		}
+
 		peers = {};
-		peer_media_elements = {};
+		peerMediaElements = {};
 	});
-	signaling_socket.on('channelFull', function() {
-		window.location = "/";
-	});
-	function join_chat_channel(channel) {
-		signaling_socket.emit('join', { "channel": channel });
+
+	function joinChannel(channel, userdata) {
+		signalingSocket.emit('join', { channel: channel, userdata: userdata });
 	}
-	function part_chat_channel(channel) {
-		signaling_socket.emit('part', channel);
-	}
-	/** 
-	 * When we join a group, our signaling server will send out 'addPeer' events to each pair
-	 * of users in the group (creating a fully-connected graph of users, ie if there are 6 people
-	 * in the channel you will connect directly to the other 5, so there will be a total of 15 
-	 * connections in the network). 
-	 */
-	signaling_socket.on('addPeer', function(config) {
-		// console.log('Signaling server said to add peer:', config);
+	signalingSocket.on('addPeer', function(config) {
 		var peer_id = config.peer_id;
-		if (peer_id in peers) {
-			/* This could happen if the user joins multiple channels where the other peer is also in. */
-			// console.log("Already connected to peer ", peer_id);
-			return;
-		}
-		var peer_connection = new RTCPeerConnection({ "iceServers": ICE_SERVERS }, { "optional": [{ "DtlsSrtpKeyAgreement": true }] } // this will no longer be needed by chrome eventually (supposedly), but is necessary for now to get firefox to talk to chrome
+		if (peer_id in peers) return;
+		peerConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS }, { optional: [{ DtlsSrtpKeyAgreement: true }] } // this will no longer be needed by chrome eventually (supposedly), but is necessary for now to get firefox to talk to chrome
 		);
-		peers[peer_id] = peer_connection;
-		peer_connection.onicecandidate = function(event) {
+		peers[peer_id] = peerConnection;
+
+		peerConnection.onicecandidate = function(event) {
 			if (event.candidate) {
-				signaling_socket.emit('relayICECandidate', {
-					'peer_id': peer_id,
-					'ice_candidate': {
-						'sdpMLineIndex': event.candidate.sdpMLineIndex,
-						'candidate': event.candidate.candidate
+				signalingSocket.emit('relayICECandidate', {
+					peer_id: peer_id,
+					ice_candidate: {
+						sdpMLineIndex: event.candidate.sdpMLineIndex,
+						candidate: event.candidate.candidate
 					}
 				});
 			}
-		}
-		peer_connection.onaddstream = function(event) {
-			// console.log("onAddStream", event);
+		};
+		peerConnection.onaddstream = function(event) {
 			const videoWrap = document.createElement('div');
 			videoWrap.className = 'video';
-			const remote_media = document.createElement('video');
-			videoWrap.appendChild(remote_media);
-			remote_media.setAttribute('playsinline', true);
-			remote_media.mediaGroup = 'remotevideo';
-			remote_media.autoplay = true;
-			remote_media.controls = false;
-			peer_media_elements[peer_id] = remote_media;
-			document.getElementById('content').appendChild(videoWrap);
-			if (remote_media.requestFullscreen) {
-				const fullScreenBtn = document.createElement('button');
-				fullScreenBtn.className = 'fullscreenbtn fa fa-expand';
-				fullScreenBtn.addEventListener('click', (e) => {
-					remote_media.requestFullscreen();
-				});
-				videoWrap.appendChild(fullScreenBtn);
-			}
-			attachMediaStream(remote_media, event.stream);
+			const remoteMedia = document.createElement('video');
+			videoWrap.appendChild(remoteMedia);
+			remoteMedia.setAttribute('playsinline', true);
+			remoteMedia.mediaGroup = 'remotevideo';
+			remoteMedia.autoplay = true;
+			remoteMedia.controls = false;
+			peerMediaElements[peer_id] = remoteMedia;
+			document.getElementById('video-container').appendChild(videoWrap);
+			attachMediaStream(remoteMedia, event.stream);
 			resizeVideos();
-			checkParticipantsCount();
-		}
+		};
+
 		/* Add our local stream */
-		peer_connection.addStream(local_media_stream);
-		/* Only one side of the peer connection should create the
-		 * offer, the signaling server picks one to be the offerer. 
-		 * The other user will get a 'sessionDescription' event and will
-		 * create an offer, then send back an answer 'sessionDescription' to us
-		 */
+		peerConnection.addStream(localMediaStream);
+
 		if (config.should_create_offer) {
-			// console.log("Creating RTC offer to ", peer_id);
-			peer_connection.createOffer(
+			peerConnection.createOffer(
 				function(local_description) {
-					// console.log("Local offer description is: ", local_description);
-					peer_connection.setLocalDescription(local_description,
+					peerConnection.setLocalDescription(
+						local_description,
 						function() {
-							signaling_socket.emit('relaySessionDescription', { 'peer_id': peer_id, 'session_description': local_description });
-							// console.log("Offer setLocalDescription succeeded"); 
+							signalingSocket.emit('relaySessionDescription', {
+								peer_id: peer_id,
+								session_description: local_description
+							});
 						},
-						function() { alert("Offer setLocalDescription failed!"); }
+						function(err) {
+							console.log(err);
+							alert('Offer setLocalDescription failed!');
+						}
 					);
 				},
 				function(error) {
-					console.log("Error sending offer: ", error);
-				});
+					console.log('Error sending offer: ', error);
+				}
+			);
 		}
 	});
-	/** 
-	 * Peers exchange session descriptions which contains information
-	 * about their audio / video settings and that sort of stuff. First
-	 * the 'offerer' sends a description to the 'answerer' (with type
-	 * "offer"), then the answerer sends one back (with type "answer").  
-	 */
-	signaling_socket.on('sessionDescription', function(config) {
-		// console.log('Remote description received: ', config);
+
+	signalingSocket.on('sessionDescription', function(config) {
 		var peer_id = config.peer_id;
 		var peer = peers[peer_id];
 		var remote_description = config.session_description;
-		// console.log(config.session_description);
+
 		var desc = new RTCSessionDescription(remote_description);
-		var stuff = peer.setRemoteDescription(desc,
+		var stuff = peer.setRemoteDescription(
+			desc,
 			function() {
-				// console.log("setRemoteDescription succeeded");
-				if (remote_description.type == "offer") {
-					// console.log("Creating answer");
+				if (remote_description.type == 'offer') {
 					peer.createAnswer(
 						function(local_description) {
-							// console.log("Answer description is: ", local_description);
-							peer.setLocalDescription(local_description,
+							peer.setLocalDescription(
+								local_description,
 								function() {
-									signaling_socket.emit('relaySessionDescription', { 'peer_id': peer_id, 'session_description': local_description });
-									// console.log("Answer setLocalDescription succeeded");
+									signalingSocket.emit('relaySessionDescription', {
+										peer_id: peer_id,
+										session_description: local_description
+									});
 								},
-								function() { Alert("Answer setLocalDescription failed!"); }
+								function(err) {
+									console.log(err);
+									alert('Answer setLocalDescription failed!');
+								}
 							);
 						},
 						function(error) {
-							console.log("Error creating answer: ", error);
-							// console.log(peer);
-						});
+							console.log('Error creating answer: ', error);
+						}
+					);
 				}
 			},
 			function(error) {
-				console.log("setRemoteDescription error: ", error);
+				console.log('setRemoteDescription error: ', error);
 			}
 		);
-		// console.log("Description Object: ", desc);
 	});
-	/**
-	 * The offerer will send a number of ICE Candidate blobs to the answerer so they 
-	 * can begin trying to find the best path to one another on the net.
-	 */
-	signaling_socket.on('iceCandidate', function(config) {
+
+	signalingSocket.on('iceCandidate', function(config) {
 		var peer = peers[config.peer_id];
 		var ice_candidate = config.ice_candidate;
 		peer.addIceCandidate(new RTCIceCandidate(ice_candidate));
 	});
-	/**
-	 * When a user leaves a channel (or is disconnected from the
-	 * signaling server) everyone will recieve a 'removePeer' message
-	 * telling them to trash the media channels they have open for those
-	 * that peer. If it was this client that left a channel, they'll also
-	 * receive the removePeers. If this client was disconnected, they
-	 * wont receive removePeers, but rather the
-	 * signaling_socket.on('disconnect') code will kick in and tear down
-	 * all the peer sessions.
-	 */
-	signaling_socket.on('removePeer', function(config) {
-		// console.log('Signaling server said to remove peer:', config);
+	signalingSocket.on('removePeer', function(config) {
 		var peer_id = config.peer_id;
-		if (peer_id in peer_media_elements) {
-			document.getElementById('content').removeChild(peer_media_elements[peer_id].parentNode);
+		if (peer_id in peerMediaElements) {
+			document.getElementById('video-container').removeChild(peerMediaElements[peer_id].parentNode);
 			resizeVideos();
 		}
 		if (peer_id in peers) {
 			peers[peer_id].close();
 		}
+
 		delete peers[peer_id];
-		delete peer_media_elements[config.peer_id];
+		delete peerMediaElements[config.peer_id];
 	});
-	//document.getElementById('roomurl').textContent = appURL() + '/' + getRoomName();
-	//document.getElementById('roomurl').addEventListener('click', event => {
-	//	let range, selection;
-	//	selection = window.getSelection();
-	//	range = document.createRange();
-	//	range.selectNodeContents(event.target);
-	//	selection.removeAllRanges();
-	//	selection.addRange(range);
-	//});
-	//document.getElementById('closebtn').addEventListener('click', () => {
-	//	document.getElementById('intro').style.display = 'none';
-	//});
 }
+
 function setup_local_media(callback, errorback) {
-	if (local_media_stream != null) { /* ie, if we've already been initialized */
+	if (localMediaStream != null) {
 		if (callback) callback();
 		return;
 	}
 	attachMediaStream = function(element, stream) {
-		// console.log('DEPRECATED, attachMediaStream will soon be removed.');
 		element.srcObject = stream;
 	};
-	navigator.mediaDevices.getUserMedia({ "audio": USE_AUDIO, "video": USE_VIDEO }).then((stream) => {
-		local_media_stream = stream;
-		const videoWrap = document.createElement('div');
-		videoWrap.className = 'video';
-		videoWrap.setAttribute('id', 'selfVideoWrap');
-		const btnWrap = document.createElement('div');
-		btnWrap.setAttribute('class', 'btn-container');
-		const muteBtn = document.createElement('button');
-		muteBtn.setAttribute('id', 'mutebtn');
-		muteBtn.className = 'fa fa-microphone';
-		muteBtn.addEventListener('click', (e) => {
-			local_media_stream.getAudioTracks()[0].enabled = !(local_media_stream.getAudioTracks()[0].enabled);
-			e.target.className = 'fa fa-microphone' + (local_media_stream.getAudioTracks()[0].enabled ? '' : '-slash');
-		});
-		btnWrap.appendChild(muteBtn);
-		const videoMuteBtn = document.createElement('button');
-		videoMuteBtn.setAttribute('id', 'videomutebtn');
-		videoMuteBtn.className = 'fa fa-video';
-		videoMuteBtn.addEventListener('click', (e) => {
-			local_media_stream.getVideoTracks()[0].enabled = !(local_media_stream.getVideoTracks()[0].enabled);
-			e.target.className = 'fa fa-video' + (local_media_stream.getVideoTracks()[0].enabled ? '' : '-slash');
-		});
-		btnWrap.appendChild(videoMuteBtn);
-		const screenShareBtn = document.createElement('button');
-		screenShareBtn.setAttribute('id', 'screensharebtn');
-		screenShareBtn.className = 'fa fa-desktop';
-		if (navigator.getDisplayMedia || navigator.mediaDevices.getDisplayMedia || navigator.userAgent.indexOf("Firefox") >= 0) {
-			screenShareBtn.addEventListener('click', (e) => {
-				let screenMediaPromise;
-				if (!IS_SCREEN_STREAMING) {
-					if (navigator.getDisplayMedia) {
-						screenMediaPromise = navigator.getDisplayMedia({ video: true });
-					} else if (navigator.mediaDevices.getDisplayMedia) {
-						screenMediaPromise = navigator.mediaDevices.getDisplayMedia({ video: true });
-					} else {
-						screenMediaPromise = navigator.mediaDevices.getUserMedia({ video: { mediaSource: 'screen' } });
-					}
-				} else {
-					screenMediaPromise = navigator.mediaDevices.getUserMedia({ video: true });
-				}
-				screenMediaPromise.then(screenStream => {
-					if (IS_SCREEN_STREAMING) local_media_stream.getVideoTracks()[0].stop();
-					local_media_stream.removeTrack(local_media_stream.getVideoTracks()[0]);
-					local_media_stream.addTrack(screenStream.getVideoTracks()[0]);
-					IS_SCREEN_STREAMING = !IS_SCREEN_STREAMING;
-					signaling_socket.disconnect();
-					init();
-					document.getElementById('selfVideo').classList.toggle('mirror');
-				}).catch(e => {
-					alert('Unable to share screen.');
-					console.error(e);
-				});
+	navigator.mediaDevices
+		.getUserMedia({ audio: USE_AUDIO, video: USE_VIDEO })
+		.then(stream => {
+			document.getElementById('allowaccess').style.display = 'none';
+			localMediaStream = stream;
+			const videoWrap = document.createElement('div');
+			videoWrap.className = 'video';
+			videoWrap.setAttribute('id', 'myVideoWrap');
+
+			document.getElementById('mutebtn').addEventListener('click', e => {
+				localMediaStream.getAudioTracks()[0].enabled = !localMediaStream.getAudioTracks()[0]
+					.enabled;
+				e.target.className =
+					'fas fa-microphone' + (localMediaStream.getAudioTracks()[0].enabled ? '' : '-slash');
 			});
-		} else {
-			screenShareBtn.setAttribute('disabled', true);
-		}
-		btnWrap.appendChild(screenShareBtn);
-		videoWrap.appendChild(btnWrap); // append all buttons to the local video wrap
-		const local_media = document.createElement('video');
-		videoWrap.appendChild(local_media);
-		local_media.setAttribute('id', 'selfVideo');
-		local_media.setAttribute('playsinline', true);
-		local_media.className = 'mirror';
-		local_media.autoplay = true;
-		local_media.muted = true;
-		local_media.volume = 0
-		local_media.controls = false;
-		document.getElementById('content').appendChild(videoWrap);
-		attachMediaStream(local_media, stream);
-		resizeVideos();
-		if (callback) callback();
-	}).catch(() => { /* user denied access to a/v */
-		alert("This site will not work without camera/microphone access.");
-		if (errorback) errorback();
-	});
+
+			document.getElementById('videomutebtn').addEventListener('click', e => {
+				localMediaStream.getVideoTracks()[0].enabled = !localMediaStream.getVideoTracks()[0]
+					.enabled;
+				e.target.className =
+					'fas fa-video' + (localMediaStream.getVideoTracks()[0].enabled ? '' : '-slash');
+			});
+
+			navigator.mediaDevices.enumerateDevices().then(devices => {
+				const videoInput = devices.filter(device => device.kind === 'videoinput');
+				if (videoInput.length > 1) {
+					document.getElementById('swapcamerabtn').addEventListener('click', e => {
+						swapCamera();
+					});
+				} else {
+					document.getElementById('swapcamerabtn').style.display = 'none';
+				}
+			});
+
+			if (navigator.getDisplayMedia || navigator.mediaDevices.getDisplayMedia) {
+				document.getElementById('screensharebtn').addEventListener('click', e => {
+					toggleScreenSharing();
+				});
+			} else {
+				document.getElementById('screensharebtn').style.display = 'none';
+			}
+
+			document.getElementById('buttons').style.opacity = '1';
+
+			const localMedia = document.createElement('video');
+			videoWrap.appendChild(localMedia);
+			localMedia.setAttribute('id', 'myVideo');
+			localMedia.setAttribute('playsinline', true);
+			localMedia.className = 'mirror';
+			localMedia.autoplay = true;
+			localMedia.muted = true;
+			localMedia.volume = 0;
+			localMedia.controls = false;
+			document.getElementById('video-container').appendChild(videoWrap);
+			attachMediaStream(localMedia, stream);
+			resizeVideos();
+			if (callback) callback();
+		})
+		.catch((e) => {
+			/* user denied access to a/v */
+			alert('This app will not work without camera/microphone access.');
+			if (errorback) errorback();
+		});
 }
 const resizeVideos = () => {
 	const numToString = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
@@ -309,24 +252,94 @@ const resizeVideos = () => {
 		v.className = 'video ' + numToString[videos.length];
 	});
 };
-const checkParticipantsCount = () => {
-	const videos = document.querySelectorAll('.video');
-	if (videos.length > 4) {
-		document.getElementById('tooManyParticipants').style.display = 'block';
-		setTimeout(() => {
-			document.getElementById('tooManyParticipants').style.display = 'none';
-		}, 3000);
+
+function toggleScreenSharing() {
+	const screenShareBtn = document.getElementById('screensharebtn');
+	const videoMuteBtn = document.getElementById('videomutebtn');
+	let screenMediaPromise;
+	if (!IS_SCREEN_STREAMING) {
+		if (navigator.getDisplayMedia) {
+			screenMediaPromise = navigator.getDisplayMedia({ video: true });
+		} else if (navigator.mediaDevices.getDisplayMedia) {
+			screenMediaPromise = navigator.mediaDevices.getDisplayMedia({ video: true });
+		} else {
+			screenMediaPromise = navigator.mediaDevices.getUserMedia({
+				video: { mediaSource: 'screen' }
+			});
+		}
+	} else {
+		screenMediaPromise = navigator.mediaDevices.getUserMedia({ video: true });
+		videoMuteBtn.className = 'fas fa-video'; // make sure to enable video
 	}
-	if (videos.length > 1) {
-		document.getElementById('intro').style.display = 'none';
-	}
+	screenMediaPromise
+		.then(screenStream => {
+			IS_SCREEN_STREAMING = !IS_SCREEN_STREAMING;
+
+			var sender = peerConnection
+				.getSenders()
+				.find(s => (s.track ? s.track.kind === 'video' : false));
+			sender.replaceTrack(screenStream.getVideoTracks()[0]);
+			screenStream.getVideoTracks()[0].enabled = true;
+
+			const newStream = new MediaStream([
+				screenStream.getVideoTracks()[0],
+				localMediaStream.getAudioTracks()[0]
+			]);
+			localMediaStream = newStream;
+			attachMediaStream(document.getElementById('myVideo'), newStream);
+
+			document.getElementById('myVideo').classList.toggle('mirror');
+			screenShareBtn.classList.toggle('active');
+
+			var videoBtnDState = document.getElementById('videomutebtn').getAttribute('disabled');
+			videoBtnDState = videoBtnDState === null ? false : true;
+			document.getElementById('videomutebtn').disabled = !videoBtnDState;
+			screenStream.getVideoTracks()[0].onended = function() {
+				if (IS_SCREEN_STREAMING) toggleScreenSharing();
+			};
+		})
+		.catch(e => {
+			alert('Unable to share screen.');
+			console.error(e);
+		});
 }
+
+const swapCamera = () => {
+	CAMERA = CAMERA == 'user' ? 'environment' : 'user';
+	if (CAMERA == 'user') USE_VIDEO = true;
+	else USE_VIDEO = { facingMode: { exact: CAMERA } };
+	navigator.mediaDevices
+		.getUserMedia({ video: USE_VIDEO })
+		.then(camStream => {
+			if (peerConnection) {
+				var sender = peerConnection
+					.getSenders()
+					.find(s => (s.track ? s.track.kind === 'video' : false));
+				sender.replaceTrack(camStream.getVideoTracks()[0]);
+			}
+			camStream.getVideoTracks()[0].enabled = true;
+
+			const newStream = new MediaStream([
+				camStream.getVideoTracks()[0],
+				localMediaStream.getAudioTracks()[0]
+			]);
+			localMediaStream = newStream;
+			attachMediaStream(document.getElementById('myVideo'), newStream);
+
+			document.getElementById('myVideo').classList.toggle('mirror');
+		})
+		.catch(err => {
+			alert('Error is swaping camera');
+			console.log(err);
+		});
+};
 
 function startVideo(chan) {
 	init(chan);
 	$('.offline').hide();
 	$('header').hide();
 	$('#video-container').show();
+	$('#allowaccess').show();
 }
 
 $('#join').submit(function (e){

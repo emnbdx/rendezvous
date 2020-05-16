@@ -16,12 +16,6 @@
                 <div class="background">
                 </div>
     
-                <div class="btn-container">
-                    <button class="fa fa-microphone"></button>
-                    <button class="fa fa-video"></button>
-                    <button class="fa fa-desktop"></button>
-                </div>
-    
                 <div class="overlay">
                 </div>
     
@@ -48,6 +42,15 @@
                 the <video> and <audio> tags are all added and removed dynamically
                 in 'onAddStream', 'setup_local_media', and 'removePeer'/'disconnect'
                 -->
+            </div>
+            <div id="allowaccess" class="alert alert-primary fade show position-absolute m-4" style="display: none;">    
+                Veillez à bien accepter l'utilisation de la camera et du micro pour profiter de cette application.
+            </div>
+            <div id="buttons" class="btn-container">
+                <button id="mutebtn" class="fas fa-microphone" aria-hidden="true"></button>
+                <button id="videomutebtn" class="fas fa-video" aria-hidden="true"></button>
+                <button id="swapcamerabtn" class="fas fa-sync-alt" aria-hidden="true"></button>
+                <button id="screensharebtn" class="fas fa-desktop" aria-hidden="true"></button>
             </div>
         </div>
 
