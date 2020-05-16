@@ -8,7 +8,16 @@ const db = require('./db');
 const socketEvents = require('./socketEvents');
 
 app.use('/', express.static(__dirname + '/public'));
-app.use('/stylesheets/fontawesome', express.static(__dirname + '/node_modules/@fortawesome/fontawesome-free/'));
+
+// stylesheet
+app.use('/css/bootstrap/', express.static(__dirname + '/node_modules/bootstrap/dist/css'));
+app.use('/css/fontawesome/', express.static(__dirname + '/node_modules/@fortawesome/fontawesome-free'));
+
+// js
+app.use('/js/jquery/', express.static(__dirname + '/node_modules/jquery/dist'));
+app.use('/js/popper.js/', express.static(__dirname + '/node_modules/popper.js/dist/umd'));
+app.use('/js/bootstrap/', express.static(__dirname + '/node_modules/bootstrap/dist/js'));
+app.use('/js/webrtc-adapter/', express.static(__dirname + '/node_modules/webrtc-adapter/out'));
 
 app.get('/status', (_req, res) => {
     res.json(db.dump());
