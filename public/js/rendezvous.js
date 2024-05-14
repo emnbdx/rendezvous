@@ -32,11 +32,11 @@ function init(room) {
 
 	signalingSocket.on('connect', function() {
 		console.log('Connected to signaling server');
-		if (localMediaStream)
-			signalingSocket.emit('join', { channel: room });
+		if (localMediaStream) joinChannel(room, {});
 		else
 			setup_local_media(function() {
-				signalingSocket.emit('join', { channel: room });
+				// Join the channel once user gives access to microphone & webcam
+				joinChannel(room, {});
 			});
 	});
 	signalingSocket.on('disconnect', function() {
@@ -50,10 +50,11 @@ function init(room) {
 
 		peers = {};
 		peerMediaElements = {};
-	});	
-	signalingSocket.on('channelFull', function() {	
-		window.location = "/";	
 	});
+
+	function joinChannel(channel, userdata) {
+		signalingSocket.emit('join', { channel: channel, userdata: userdata });
+	}
 	signalingSocket.on('addPeer', function(config) {
 		var peer_id = config.peer_id;
 		if (peer_id in peers) return;
