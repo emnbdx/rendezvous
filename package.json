@@ -4,8 +4,8 @@
   "description": "Audio & Video meeting and chat",
   "main": "server.js",
   "repository": "git@github.com:emnbdx/rendezvous.git",
-  "author": "Eddy <eddy.montus@gmail.com>",
-  "license": "MIT",
+  "author": "emnbdx <eddy.montus@gmail.com>",
+  "license": "GPL-3.0",
   "dependencies": {
     "@fortawesome/fontawesome-free": "^5.13.0",
     "bootstrap": "^4.5.0",
@@ -14,5 +14,6 @@
     "popper.js": "^1.16.1",
     "socket.io": "^2.3.0",
     "webrtc-adapter": "^7.6.0"
-  }
+  },
+  "packageManager": "yarn@4.2.2"
 }
