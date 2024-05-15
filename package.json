@@ -15,5 +15,8 @@
     "socket.io": "^2.3.0",
     "webrtc-adapter": "^7.6.0"
   },
+  "scripts": {
+    "start": "node server.js"
+  },
   "packageManager": "yarn@4.2.2"
 }
