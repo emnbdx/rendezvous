@@ -31,9 +31,9 @@ app.get('/:room', (_req, res) => {
 io.origins((origin, callback) => {
     if(config.cors_whitelist.filter(item => origin.startsWith(item)).length > 0) {
         callback(null, true);
+    } else {
+        callback(new Error('Not allowed by CORS'));
     }
-    
-    callback(new Error('Not allowed by CORS'));
 });
 
 io.on('connect', socketEvents.connection);
